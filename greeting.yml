@@ -47,7 +47,7 @@ Resources:
             }
 
       FunctionName: !Ref LambdaFunctionName
-      Handler: lambda_function.lambda_handler
+      Handler: index.lambda_handler
       Runtime: python3.9
       Role: !GetAtt IAMRole.Arn
 
@@ -71,27 +71,51 @@ Resources:
     DependsOn:
       - APIGatewayRestAPI
 
+  APIGatewayResourceName:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref APIGatewayRestAPI
+      ParentId: !Ref APIGatewayResource
+      PathPart: "{name}"
+    DependsOn:
+      - APIGatewayResource
+
   APIGatewayMethod:
     Type: 'AWS::ApiGateway::Method'
     Properties:
       RestApiId: !Ref APIGatewayRestAPI
-      ResourceId: !Ref APIGatewayResource
+      ResourceId: !Ref APIGatewayResourceName
+      RequestValidatorId: !Ref ApiGatewayRequestValidator
       HttpMethod: GET
       AuthorizationType: NONE
+      # RequestModels:
+      #   Model: !Ref ApiGatewayModel
+      RequestParameters: 
+        method.request.querystring.lang: true  
       MethodResponses:
         - StatusCode: 200
       Integration:
-        Type: AWS
+        Type: AWS_PROXY
+        Credentials: !GetAtt ApiGatewayIamRole.Arn
         IntegrationResponses:
           - StatusCode: 200
         IntegrationHttpMethod: GET
-        Uri: !Sub
-          - >-
-            arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFuncNameArn}/invocations
-          - LambdaFuncNameArn: !GetAtt LambdaFunction.Arn
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations
     DependsOn:
-      - APIGatewayResource
+      - APIGatewayResourceName
 
+  ApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: 'application/json'
+      RestApiId: !Ref APIGatewayRestAPI
+      Schema: {}
+
+  ApiGatewayRequestValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties: 
+      RestApiId: !Ref APIGatewayRestAPI
+      ValidateRequestParameters: True
 
   APIGatewayDeployment:
     Type: 'AWS::ApiGateway::Deployment'
@@ -110,6 +134,29 @@ Resources:
       Principal: apigateway.amazonaws.com
     DependsOn:
       - APIGatewayDeployment
+
+  ApiGatewayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: !GetAtt LambdaFunction.Arn
 
   IAMRole:
     Type: AWS::IAM::Role
