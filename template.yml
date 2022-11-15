@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+# Parameters:
+#   Stage:
+#     Type: String
+
+Resources:
+  calculatorStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: '/calculator.yml'
+  # InternalJobs:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     dạ sao anh zai
+  #     Parameters:
+  #       Stage: !Ref Stage
+  # PublicAPI:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     TemplateURL: public/api/template.yaml
+  #     Parameters:
+  #       Stage: !Ref Stage
